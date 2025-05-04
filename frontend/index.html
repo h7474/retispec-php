@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retispec Test Frontend</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: auto; }
+        h1, h2 { border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+        .section { margin-bottom: 30px; padding: 15px; border: 1px solid #eee; border-radius: 5px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="date"], select, input[type="file"] { width: calc(100% - 22px); padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 3px; }
+        button { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; margin-right: 5px; }
+        button:hover { background-color: #0056b3; }
+        pre { background-color: #f4f4f4; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .error { color: red; font-weight: bold; }
+        .success { color: green; font-weight: bold; }
+        .form-group { margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+    <h1>Retispec API Test Frontend</h1>
+
+    <div class="section">
+        <h2>Patients API</h2>
+
+        <div class="form-group">
+            <h3>Create Patient</h3>
+            <label for="fname">First Name:</label>
+            <input type="text" id="fname" name="fname" required><br>
+            <label for="lname">Last Name:</label>
+            <input type="text" id="lname" name="lname" required><br>
+            <label for="dob">Date of Birth:</label>
+            <input type="date" id="dob" name="dob" required><br>
+            <label for="sex">Sex:</label>
+            <select id="sex" name="sex" required>
+                <option value="M">Male</option>
+                <option value="F">Female</option>
+                <option value="Other">Other</option>
+            </select><br>
+            <button onclick="createPatient()">Create Patient</button>
+        </div>
+
+        <div class="form-group">
+            <h3>Get Patient by ID</h3>
+            <label for="get_patient_id">Patient ID:</label>
+            <input type="text" id="get_patient_id" name="get_patient_id"><br>
+            <button onclick="getPatientById()">Get Patient</button>
+        </div>
+
+        <div class="form-group">
+            <h3>Get Patients by Name</h3>
+            <label for="search_fname">First Name:</label>
+            <input type="text" id="search_fname" name="search_fname"><br>
+            <label for="search_lname">Last Name:</label>
+            <input type="text" id="search_lname" name="search_lname"><br>
+            <button onclick="getPatientsByName()">Search Patients</button>
+        </div>
+        
+        <div class="form-group">
+            <h3>Delete Patient by ID</h3>
+            <label for="delete_patient_id">Patient ID:</label>
+            <input type="text" id="delete_patient_id" name="delete_patient_id"><br>
+            <button onclick="deletePatientById()">Delete Patient</button>
+        </div>
+
+        <h3>Patient API Response:</h3>
+        <pre id="patient_response">API responses will appear here...</pre>
+    </div>
+
+    <div class="section">
+        <h2>Acquisitions API</h2>
+
+        <div class="form-group">
+            <h3>Create Acquisition</h3>
+            <form id="acquisitionForm" enctype="multipart/form-data">
+                <label for="acq_patient_id">Patient ID:</label>
+                <input type="text" id="acq_patient_id" name="patient_id" required><br>
+                <label for="eye">Eye:</label>
+                <select id="eye" name="eye" required>
+                    <option value="LEFT">Left</option>
+                    <option value="RIGHT">Right</option>
+                </select><br>
+                <label for="site">Site:</label>
+                <input type="text" id="site" name="site" required><br>
+                <label for="acq_date">Date:</label>
+                <input type="date" id="acq_date" name="date" required><br>
+                <label for="operator">Operator:</label>
+                <input type="text" id="operator" name="operator" required><br>
+                <label for="image">Image File (png, jpg, jpeg):</label>
+                <input type="file" id="image" name="image" accept=".png,.jpg,.jpeg" required><br>
+                <button type="button" onclick="createAcquisition()">Create Acquisition</button>
+            </form>
+        </div>
+
+        <div class="form-group">
+            <h3>Get Acquisitions by Patient ID</h3>
+            <label for="get_acq_patient_id">Patient ID:</label>
+            <input type="text" id="get_acq_patient_id" name="get_acq_patient_id"><br>
+            <button onclick="getAcquisitionsByPatientId()">Get Acquisitions</button>
+        </div>
+
+        <div class="form-group">
+            <h3>Download Acquisition Image by ID</h3>
+            <label for="download_acq_id">Acquisition ID:</label>
+            <input type="text" id="download_acq_id" name="download_acq_id"><br>
+            <button onclick="downloadAcquisitionImage()">Download Image</button>
+        </div>
+        
+        <div class="form-group">
+            <h3>Delete Acquisition by ID</h3>
+            <label for="delete_acq_id">Acquisition ID:</label>
+            <input type="text" id="delete_acq_id" name="delete_acq_id"><br>
+            <button onclick="deleteAcquisitionById()">Delete Acquisition</button>
+        </div>
+
+        <h3>Acquisition API Response:</h3>
+        <pre id="acquisition_response">API responses will appear here...</pre>
+    </div>
+
+    <script>
+        const API_BASE_URL = "."; // Relative path, assuming frontend served by Nginx
+
+        async function handleResponse(response, responseElementId) {
+            const responseElement = document.getElementById(responseElementId);
+            responseElement.textContent = ";
+            responseElement.classList.remove("error", "success");
+
+            if (response.status === 204) { // No Content
+                 responseElement.textContent = `Status: ${response.status} (No Content)`;
+                 responseElement.classList.add("success");
+                 return null;
+            }
+            
+            // Handle file download separately
+            if (response.headers.get("content-disposition")?.includes("attachment")) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                const filename = response.headers.get("content-disposition").split("filename=")[1].replace(/"/g, ";
+                a.href = url;
+                a.download = filename || "downloaded_image";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+                responseElement.textContent = `Status: ${response.status} - File download initiated (${filename}).`;
+                responseElement.classList.add("success");
+                return null;
+            }
+
+            const contentType = response.headers.get("content-type");
+            let data;
+            if (contentType && contentType.includes("application/json")) {
+                data = await response.json();
+            } else {
+                data = await response.text();
+            }
+
+            if (!response.ok) {
+                responseElement.textContent = `Error: ${response.status} ${response.statusText}\n${JSON.stringify(data, null, 2)}`;
+                responseElement.classList.add("error");
+            } else {
+                responseElement.textContent = `Status: ${response.status}\n${JSON.stringify(data, null, 2)}`;
+                responseElement.classList.add("success");
+            }
+            return data;
+        }
+
+        // --- Patient Functions ---
+        async function createPatient() {
+            const patientData = {
+                fname: document.getElementById("fname").value,
+                lname: document.getElementById("lname").value,
+                dob: document.getElementById("dob").value,
+                sex: document.getElementById("sex").value
+            };
+            try {
+                const response = await fetch(`${API_BASE_URL}/patients`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(patientData)
+                });
+                await handleResponse(response, "patient_response");
+            } catch (error) {
+                document.getElementById("patient_response").textContent = `Fetch Error: ${error}`;
+                document.getElementById("patient_response").classList.add("error");
+            }
+        }
+
+        async function getPatientById() {
+            const patientId = document.getElementById("get_patient_id").value;
+            if (!patientId) { alert("Please enter a Patient ID"); return; }
+            try {
+                const response = await fetch(`${API_BASE_URL}/patients/${patientId}`);
+                await handleResponse(response, "patient_response");
+            } catch (error) {
+                document.getElementById("patient_response").textContent = `Fetch Error: ${error}`;
+                document.getElementById("patient_response").classList.add("error");
+            }
+        }
+
+        async function getPatientsByName() {
+            const fname = document.getElementById("search_fname").value;
+            const lname = document.getElementById("search_lname").value;
+            if (!fname || !lname) { alert("Please enter both First and Last Name"); return; }
+            try {
+                const response = await fetch(`${API_BASE_URL}/patients?fname=${encodeURIComponent(fname)}&lname=${encodeURIComponent(lname)}`);
+                await handleResponse(response, "patient_response");
+            } catch (error) {
+                document.getElementById("patient_response").textContent = `Fetch Error: ${error}`;
+                document.getElementById("patient_response").classList.add("error");
+            }
+        }
+        
+        async function deletePatientById() {
+            const patientId = document.getElementById("delete_patient_id").value;
+            if (!patientId) { alert("Please enter a Patient ID"); return; }
+            if (!confirm(`Are you sure you want to delete patient ${patientId}? This will also delete their acquisitions.`)) return;
+            try {
+                const response = await fetch(`${API_BASE_URL}/patients/${patientId}`, { method: "DELETE" });
+                await handleResponse(response, "patient_response");
+            } catch (error) {
+                document.getElementById("patient_response").textContent = `Fetch Error: ${error}`;
+                document.getElementById("patient_response").classList.add("error");
+            }
+        }
+
+        // --- Acquisition Functions ---
+        async function createAcquisition() {
+            const form = document.getElementById("acquisitionForm");
+            const formData = new FormData(form);
+            const imageFile = document.getElementById("image").files[0];
+
+            if (!formData.get("patient_id") || !formData.get("eye") || !formData.get("site") || !formData.get("date") || !formData.get("operator") || !imageFile) {
+                alert("Please fill all acquisition fields and select an image.");
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/acquisitions`, {
+                    method: "POST",
+                    body: formData // No Content-Type header needed, browser sets it for FormData
+                });
+                await handleResponse(response, "acquisition_response");
+                if(response.ok) form.reset(); // Clear form on success
+            } catch (error) {
+                document.getElementById("acquisition_response").textContent = `Fetch Error: ${error}`;
+                document.getElementById("acquisition_response").classList.add("error");
+            }
+        }
+
+        async function getAcquisitionsByPatientId() {
+            const patientId = document.getElementById("get_acq_patient_id").value;
+            if (!patientId) { alert("Please enter a Patient ID"); return; }
+            try {
+                const response = await fetch(`${API_BASE_URL}/acquisitions/${patientId}`);
+                await handleResponse(response, "acquisition_response");
+            } catch (error) {
+                document.getElementById("acquisition_response").textContent = `Fetch Error: ${error}`;
+                document.getElementById("acquisition_response").classList.add("error");
+            }
+        }
+
+        async function downloadAcquisitionImage() {
+            const acqId = document.getElementById("download_acq_id").value;
+            if (!acqId) { alert("Please enter an Acquisition ID"); return; }
+            try {
+                // We don't use handleResponse directly here as we want to trigger download
+                const response = await fetch(`${API_BASE_URL}/acquisitions/download/${acqId}`);
+                await handleResponse(response, "acquisition_response"); // Let handleResponse manage download/error display
+                
+            } catch (error) {
+                document.getElementById("acquisition_response").textContent = `Fetch Error: ${error}`;
+                document.getElementById("acquisition_response").classList.add("error");
+            }
+        }
+        
+        async function deleteAcquisitionById() {
+            const acqId = document.getElementById("delete_acq_id").value;
+            if (!acqId) { alert("Please enter an Acquisition ID"); return; }
+             if (!confirm(`Are you sure you want to delete acquisition ${acqId}? This will also delete its image.`)) return;
+            try {
+                const response = await fetch(`${API_BASE_URL}/acquisitions/${acqId}`, { method: "DELETE" });
+                await handleResponse(response, "acquisition_response");
+            } catch (error) {
+                document.getElementById("acquisition_response").textContent = `Fetch Error: ${error}`;
+                document.getElementById("acquisition_response").classList.add("error");
+            }
+        }
+
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,75 @@
+version: '3.9'
+
+services:
+  patient-service:
+    build:
+      context: ./patient-service
+    container_name: patient-service
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=postgres
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+    volumes:
+      - ./patient-service/src:/var/www/html # Mount source for development (optional)
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+  acquisition-service:
+    build:
+      context: ./acquisition-service
+    container_name: acquisition-service
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=postgres
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+    volumes:
+      - ./acquisition-service/src:/var/www/html # Mount source for development (optional)
+      - uploads:/uploads # Mount the shared volume for uploads
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+  nginx:
+    build:
+      context: ./nginx
+    container_name: nginx-proxy
+    ports:
+      - "8080:80" # Expose Nginx on host port 8080
+    volumes:
+      - ./frontend:/usr/share/nginx/html # Serve frontend from Nginx
+      - uploads:/uploads # Mount the shared volume for uploads (read-only if needed, but PHP needs write)
+    depends_on:
+      - patient-service
+      - acquisition-service
+    networks:
+      - app-network
+
+  db:
+    image: postgres:12
+    container_name: db
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # Add init script
+    ports:
+      - "5432:5432" # Expose DB port only if needed for external access/debugging
+    networks:
+      - app-network
+
+volumes:
+  pgdata: {}
+  uploads: {}
+
+networks:
+  app-network:
+    driver: bridge
