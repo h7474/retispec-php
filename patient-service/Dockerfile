@@ -1,5 +1,5 @@
 # Use official PHP FPM image
-FROM php:8.2-fpm
+FROM php:latest
 
 # Install system dependencies and PHP extensions
 RUN apt-get update && apt-get install -y \
@@ -19,4 +19,4 @@ COPY ./src /var/www/html/
 EXPOSE 9001
 
 # Start PHP-FPM
-CMD ["php-fpm"]
+CMD ["php"]
